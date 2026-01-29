@@ -9,6 +9,7 @@ from qdrant_client.http import models as qm
 from pathlib import Path
 
 # Define menu headings
+'''
 HEADINGS = {"Western", "Asian", "Fusion", "Beverages"}
 def split_menu_by_heading(text: str) -> list[Document]:
     docs: list[Document] = []
@@ -41,6 +42,7 @@ def split_menu_by_heading(text: str) -> list[Document]:
         docs.append(Document(page_content="\n".join(buf), metadata={"category": current}))
 
     return docs
+'''
 
 # Define base directory and file path
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,19 +53,21 @@ loader = PyPDFLoader(file_path)
 docs = loader.load()
 
 # Combine all pages into a single text
-full_text = "\n".join(d.page_content for d in docs)
-section_docs = split_menu_by_heading(full_text)
+#full_text = "\n".join(d.page_content for d in docs)
+#section_docs = split_menu_by_heading(full_text)
 
 # Split document into chunks
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000, chunk_overlap=200, add_start_index=True
 )
 all_splits = text_splitter.split_documents(docs)
+print(len(all_splits))
 #all_splits = section_docs
 
 # Generate embeddings using Ollama
 embeddings = OllamaEmbeddings(model="nomic-embed-text")
 vector_1 = embeddings.embed_query(all_splits[0].page_content)
+print(len(vector_1))
 
 # Initialize Qdrant client and create collection
 client = QdrantClient(":memory:")
@@ -84,14 +88,18 @@ vector_store = QdrantVectorStore(
 # Index document chunks into Qdrant
 ids = vector_store.add_documents(documents=all_splits)
 
+
+# Perform basic similarity search
+
 results = vector_store.similarity_search(
     "Can you show menu for western cuisine?",
 )
 
 print(results[0])
 
-'''
 
+# Perform filtered similarity search
+'''
 query = "Can you show menu for western cuisine?"
 qdrant_filter = qm.Filter(
     must=[qm.FieldCondition(
