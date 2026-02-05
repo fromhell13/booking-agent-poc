@@ -1,0 +1,1 @@
+to run ingest, please run uv run -m mcp_server.tools.ingest from root directory
