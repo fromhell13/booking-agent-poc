@@ -1,7 +1,7 @@
 from mcp_server.tools.menu_rag import MenuRAG
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 QDRANT_DIR = str(PROJECT_ROOT / "qdrant_local")
 BASE_DIR = Path(__file__).resolve().parent.parent
 file_path = BASE_DIR / "menu" / "sample_menu.pdf"
