@@ -10,8 +10,13 @@ mcp = FastMCP("booking-agent-tools")
 
 from pathlib import Path
 from tools.menu_rag import MenuRAG
+
+'''
 PROJECT_ROOT = Path(__file__).resolve().parents[1] 
 QDRANT_DIR = str(PROJECT_ROOT / "qdrant_local")
+'''
+MCP_ROOT = Path(__file__).resolve().parent
+QDRANT_DIR = str(MCP_ROOT / "qdrant_local")
 
 menu_rag = MenuRAG(collection_name="menu", qdrant_path=QDRANT_DIR, embedding_model="nomic-embed-text")
 #menu_rag = MenuRAG(collection_name="menu", qdrant_path=":memory:", embedding_model="nomic-embed-text")
