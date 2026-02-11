@@ -1,0 +1,11 @@
+fastmcp
+qdrant-client
+langchain-qdrant
+langchain-community
+langchain-text-splitters
+langchain-ollama
+pypdf
+
+sqlalchemy
+psycopg[binary]
+pydantic

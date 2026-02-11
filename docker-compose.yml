@@ -1,0 +1,83 @@
+services:
+  # LLM runtime for embeddings + chat (in-container)
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    networks: [backend]
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: booking
+      POSTGRES_PASSWORD: bookingpass
+      POSTGRES_DB: bookingdb
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks: [backend]
+
+  mcp_server:
+    build:
+      context: ./mcp_server
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      QDRANT_PATH: /data/qdrant_local
+      DATABASE_URL: postgresql+psycopg://booking:bookingpass@postgres:5432/bookingdb
+    volumes:
+      - qdrant_data:/data/qdrant_local
+    networks: [backend]
+    depends_on:
+      - postgres
+      - ollama
+    expose:
+      - "8000"
+
+  # one-off ingestion job (only when you run it)
+  ingest:
+    build:
+      context: ./ingest
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      QDRANT_PATH: /data/qdrant_local
+    volumes:
+      - qdrant_data:/data/qdrant_local
+      - ./mcp_server/menu:/app/menu:ro
+    networks: [backend]
+    profiles: ["ingest"]
+    depends_on:
+      - ollama
+
+  agent:
+    build:
+      context: ./agents
+    environment:
+      MCP_URL: http://mcp_server:8000/mcp
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_CHAT_MODEL: smallthinker
+    networks: [frontend, backend]
+    depends_on:
+      - mcp_server
+      - ollama
+    expose:
+      - "8080"
+
+  streamlit:
+    build:
+      context: ./streamlit
+    environment:
+      AGENT_URL: http://agent:8080
+    networks: [frontend]
+    depends_on:
+      - agent
+    ports:
+      - "8501:8501"
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  pg_data:
+  qdrant_data:
+  ollama_data:
