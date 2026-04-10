@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from app.graph import graph
 
 app = FastAPI(title="booking-agent")
@@ -11,7 +11,7 @@ class ChatReq(BaseModel):
 
 class ChatResp(BaseModel):
     answer: str
-    tool_result: Optional[dict] = None
+    tool_result: Optional[Any] = None
 
 @app.get("/health")
 def health():

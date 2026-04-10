@@ -5,6 +5,7 @@ langchain-community
 langchain-text-splitters
 langchain-ollama
 pypdf
+starlette
 
 sqlalchemy
 psycopg[binary]

@@ -3,6 +3,13 @@ import requests
 import streamlit as st
 
 AGENT_URL = os.getenv("AGENT_URL", "http://agent:8080")
+# (connect_timeout_sec, read_timeout_sec) — local Ollama can exceed 5m on cold CPU
+_AGENT_TIMEOUT = os.getenv("AGENT_REQUEST_TIMEOUT", "600")
+try:
+    _t = float(_AGENT_TIMEOUT)
+    REQUEST_TIMEOUT = (15.0, _t)
+except ValueError:
+    REQUEST_TIMEOUT = (15.0, 600.0)
 
 st.set_page_config(page_title="Booking Agent", page_icon="🍽️")
 st.title("🍽️ Booking Agent")
@@ -24,7 +31,8 @@ if prompt:
     with st.chat_message("assistant"):
         payload = {"messages": st.session_state.messages[-10:], "text": prompt}
         try:
-            r = requests.post(f"{AGENT_URL}/chat", json=payload, timeout=60)
+            # Ollama cold-start / first request can exceed 60s on CPU.
+            r = requests.post(f"{AGENT_URL}/chat", json=payload, timeout=REQUEST_TIMEOUT)
             r.raise_for_status()
             data = r.json()
             answer = data.get("answer", "")

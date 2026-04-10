@@ -8,6 +8,8 @@ services:
 
   postgres:
     image: postgres:16
+    ports:
+      - "25432:5432"
     environment:
       POSTGRES_USER: booking
       POSTGRES_PASSWORD: bookingpass
@@ -22,6 +24,7 @@ services:
       context: ./mcp_server
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_HTTP_TIMEOUT: "600"
       QDRANT_PATH: /data/qdrant_local
       DATABASE_URL: postgresql+psycopg://booking:bookingpass@postgres:5432/bookingdb
     volumes:
@@ -30,19 +33,20 @@ services:
     depends_on:
       - postgres
       - ollama
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
 
   # one-off ingestion job (only when you run it)
   ingest:
     build:
-      context: ./ingest
+      context: .
+      dockerfile: ingest/Dockerfile
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       QDRANT_PATH: /data/qdrant_local
     volumes:
       - qdrant_data:/data/qdrant_local
-      - ./mcp_server/menu:/app/menu:ro
+      - ./sample_menu:/app/sample_menu:ro
     networks: [backend]
     profiles: ["ingest"]
     depends_on:
@@ -55,6 +59,8 @@ services:
       MCP_URL: http://mcp_server:8000/mcp
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_CHAT_MODEL: smallthinker
+      OLLAMA_HTTP_TIMEOUT: "600"
+      OLLAMA_NUM_PREDICT: "384"
     networks: [frontend, backend]
     depends_on:
       - mcp_server
@@ -67,6 +73,7 @@ services:
       context: ./streamlit
     environment:
       AGENT_URL: http://agent:8080
+      AGENT_REQUEST_TIMEOUT: "600"
     networks: [frontend]
     depends_on:
       - agent

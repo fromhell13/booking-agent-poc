@@ -1,0 +1,1 @@
+-- Postgres init for bookingdb. Tables are created by the MCP server (SQLAlchemy create_all).

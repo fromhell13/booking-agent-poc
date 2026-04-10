@@ -6,6 +6,21 @@ from pathlib import Path
 from fastmcp import FastMCP
 from fastmcp.utilities.logging import get_logger
 
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
+
+from tools.validation import (
+    validate_date,
+    validate_time,
+    validate_phone,
+    validate_name,
+    validate_pax,
+    validate_reservation_id,
+    validate_query,
+    validate_top_k,
+    validate_max_tables,
+    validate_notes,
+)
 from tools.menu.menu_rag import MenuRAG
 from tools.booking.booking_repo import (
     init_db,
@@ -46,6 +61,8 @@ def menu_count() -> dict:
 
 @mcp.tool()
 def query_menu(query: str, top_k: int = 3) -> dict:
+    query = validate_query(query)
+    top_k = validate_top_k(top_k)
     hits = menu_rag.query(query=query, top_k=top_k)
     for h in hits:
         h["text"] = (h.get("text") or "")[:800]
@@ -56,20 +73,32 @@ def query_menu(query: str, top_k: int = 3) -> dict:
 # -------------------
 @mcp.tool()
 def booking_check_availability(date: str, time: str, max_tables: int = 10) -> dict:
+    date = validate_date(date)
+    time = validate_time(time)
+    max_tables = validate_max_tables(max_tables)
     return check_availability(date=date, time=time, max_tables=max_tables)
 
 @mcp.tool()
 def booking_create(name: str, phone: str, date: str, time: str, pax: int, notes: str = "") -> dict:
+    name = validate_name(name)
+    phone = validate_phone(phone)
+    date = validate_date(date)
+    time = validate_time(time)
+    pax = validate_pax(pax)
+    notes = validate_notes(notes)
     return create_reservation(name=name, phone=phone, date=date, time=time, pax=pax, notes=notes)
 
 @mcp.tool()
 def booking_list(date: str | None = None) -> dict:
+    if date is not None:
+        date = validate_date(date)
     return list_reservations(date=date)
 
 @mcp.tool()
 def booking_cancel(reservation_id: int) -> dict:
+    reservation_id = validate_reservation_id(reservation_id)
     return cancel_reservation(reservation_id=reservation_id)
-
+'''
 if __name__ == "__main__":
     mcp.run(
         transport="streamable-http",
@@ -77,3 +106,14 @@ if __name__ == "__main__":
         port=8000,
         path="/mcp",
     )
+'''
+middleware = [
+    Middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["Mcp-Session-Id"]
+    )
+]
+app = mcp.http_app(path="/mcp", middleware=middleware)

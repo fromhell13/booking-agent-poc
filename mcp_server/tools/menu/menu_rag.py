@@ -29,10 +29,12 @@ class MenuRAG:
         self.client = QdrantClient(path=qdrant_path)
 
         # keep_alive expects int in your installed version
+        _timeout = float(os.getenv("OLLAMA_HTTP_TIMEOUT", "600"))
         self.embeddings = OllamaEmbeddings(
             model=embedding_model,
             base_url=ollama_base_url,
             keep_alive=keep_alive_seconds,
+            client_kwargs={"timeout": _timeout},
         )
 
         # Do not call embeddings at startup to get dimension.
