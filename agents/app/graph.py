@@ -10,7 +10,10 @@ import os
 import re
 import asyncio
 import logging
+
 import agentops
+from agentops.sdk.decorators import tool
+
 from datetime import datetime
 from typing import TypedDict, List, Optional, Literal, Dict, Any
 
@@ -181,6 +184,7 @@ async def _call_tool(scope: Scope, tool_name: str, payload: dict) -> dict:
     return {"content": raw}
 
 
+@tool(name="query_menu")
 def run_menu(state: State) -> State:
     result = asyncio.run(
         _call_tool("menu", "query_menu", {"query": state["text"], "top_k": 3})
@@ -188,7 +192,7 @@ def run_menu(state: State) -> State:
     state["tool_result"] = result
     return state
 
-
+@tool(name="booking_check_availability")
 def run_booking_read(state: State) -> State:
     text = state.get("text") or ""
     date = parse_date_from_text(text)
@@ -213,7 +217,7 @@ def run_booking_read(state: State) -> State:
     state["tool_result"] = result
     return state
 
-
+@tool(name="booking_create")
 def run_booking_write(state: State) -> State:
     text = state.get("text") or ""
     form = state.get("booking_form") or {}
@@ -295,7 +299,7 @@ def run_booking_write(state: State) -> State:
     state["tool_result"] = result
     return state
 
-
+@tool(name="respond")
 def respond(state: State) -> State:
     tr = state.get("tool_result")
     if state.get("intent") == "booking_read" and isinstance(tr, dict):
@@ -335,7 +339,6 @@ def respond(state: State) -> State:
         - If user asks for a cuisine/category (e.g., asian, western, beverage), return ONLY items from that cuisine/category.
         - Exclude items from other cuisines/categories unless user asks for them.
         - If no matching items are found in tool_result, say that clearly and ask one short clarification.
-        - Keep menu output to 3-6 items unless the user asks for more.
         - Include price only when available in tool_result.
         - For general menu requests, return up to 6 items total.
 
