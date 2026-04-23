@@ -73,6 +73,7 @@ services:
       OLLAMA_CHAT_MODEL: smallthinker
       OLLAMA_HTTP_TIMEOUT: "600"
       OLLAMA_NUM_PREDICT: "384"
+      AGENTOPS_API_KEY: ${AGENTOPS_API_KEY:-}
     networks: [frontend, backend]
     depends_on:
       - mcp_server

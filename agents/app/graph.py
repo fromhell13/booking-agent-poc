@@ -9,6 +9,8 @@ import json
 import os
 import re
 import asyncio
+import logging
+import agentops
 from datetime import datetime
 from typing import TypedDict, List, Optional, Literal, Dict, Any
 
@@ -17,6 +19,13 @@ from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 from app.mcp_client import get_mcp_tools, Scope
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+from dotenv import load_dotenv
+load_dotenv()
+
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "smallthinker")
@@ -28,6 +37,14 @@ llm = ChatOllama(
     num_predict=_ollama_num_predict,
     client_kwargs={"timeout": _ollama_http_timeout},
 )
+
+# AgentOps init
+AGENTOPS_API_KEY = os.getenv("AGENTOPS_API_KEY")
+agentops.init(
+        api_key=AGENTOPS_API_KEY,
+        default_tags=["langgraph"],
+)
+logger.info(f"AgentOps initialized with API key: {AGENTOPS_API_KEY}")
 
 # Optional extracted slots for booking tools
 DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -316,7 +333,7 @@ def respond(state: State) -> State:
         Output format:
         - Keep total response under 120 words.
         - For menu responses, use this format exactly:
-          Final Solution:
+          Menu:
           - <item 1>
           - <item 2>
           - <item 3>
