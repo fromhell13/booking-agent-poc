@@ -9,11 +9,11 @@ services:
   postgres:
     image: postgres:16
     ports:
-      - "25432:5432"
+      - "${POSTGRES_PORT:-25432}:5432"
     environment:
-      POSTGRES_USER: booking
-      POSTGRES_PASSWORD: bookingpass
-      POSTGRES_DB: bookingdb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -30,12 +30,12 @@ services:
     build:
       context: ./mcp_server
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_HTTP_TIMEOUT: "600"
-      QDRANT_PATH: /data/qdrant_local
-      DATABASE_URL: postgresql+psycopg://booking:bookingpass@postgres:5432/bookingdb
-      REDIS_URL: redis://redis:6379/0
-      MENU_CACHE_TTL_SECONDS: "3600"
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      OLLAMA_HTTP_TIMEOUT: ${OLLAMA_HTTP_TIMEOUT}
+      QDRANT_PATH: ${QDRANT_PATH}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      MENU_CACHE_TTL_SECONDS: ${MENU_CACHE_TTL_SECONDS}
     volumes:
       - qdrant_data:/data/qdrant_local
     networks: [backend]
@@ -44,7 +44,7 @@ services:
       - ollama
       - redis
     ports:
-      - "8000:8000"
+      - "${MCP_SERVER_PORT:-8000}:8000"
 
   # one-off ingestion job (only when you run it)
   ingest:
@@ -52,9 +52,9 @@ services:
       context: .
       dockerfile: ingest/Dockerfile
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      QDRANT_PATH: /data/qdrant_local
-      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      QDRANT_PATH: ${QDRANT_PATH}
+      REDIS_URL: ${REDIS_URL}
     volumes:
       - qdrant_data:/data/qdrant_local
       - ./sample_menu:/app/sample_menu:ro
@@ -68,11 +68,11 @@ services:
     build:
       context: ./agents
     environment:
-      MCP_URL: http://mcp_server:8000/mcp
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_CHAT_MODEL: smallthinker
-      OLLAMA_HTTP_TIMEOUT: "600"
-      OLLAMA_NUM_PREDICT: "384"
+      MCP_URL: ${MCP_URL}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL}
+      OLLAMA_HTTP_TIMEOUT: ${OLLAMA_HTTP_TIMEOUT}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT}
       AGENTOPS_API_KEY: ${AGENTOPS_API_KEY:-}
     networks: [frontend, backend]
     depends_on:
@@ -85,13 +85,13 @@ services:
     build:
       context: ./streamlit
     environment:
-      AGENT_URL: http://agent:8080
-      AGENT_REQUEST_TIMEOUT: "600"
+      AGENT_URL: ${AGENT_URL}
+      AGENT_REQUEST_TIMEOUT: ${AGENT_REQUEST_TIMEOUT}
     networks: [frontend]
     depends_on:
       - agent
     ports:
-      - "8501:8501"
+      - "${STREAMLIT_PORT:-8501}:8501"
 
 networks:
   frontend:

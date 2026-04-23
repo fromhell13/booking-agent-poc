@@ -152,6 +152,7 @@ def _normalize_tool_result(raw: Any) -> dict:
 class State(TypedDict):
     messages: List[Dict[str, str]]
     text: str
+    booking_form: Optional[Dict[str, Any]]
     intent: Optional[str]
     tool_result: Optional[dict]
     answer: Optional[str]
@@ -215,13 +216,20 @@ def run_booking_read(state: State) -> State:
 
 def run_booking_write(state: State) -> State:
     text = state.get("text") or ""
+    form = state.get("booking_form") or {}
 
     # Extract booking details from all prior user turns so users can provide info gradually.
     user_texts = [m.get("content", "") for m in state.get("messages", []) if m.get("role") == "user"]
     combined = " ".join(user_texts + [text]).strip()
 
-    date = parse_date_from_text(combined)
-    time = parse_time_from_text(combined)
+    form_name = (form.get("name") or "").strip() if isinstance(form.get("name"), str) else None
+    form_phone = (form.get("phone") or "").strip() if isinstance(form.get("phone"), str) else None
+    form_date = (form.get("date") or "").strip() if isinstance(form.get("date"), str) else None
+    form_time = (form.get("time") or "").strip() if isinstance(form.get("time"), str) else None
+    form_notes = (form.get("notes") or "").strip() if isinstance(form.get("notes"), str) else ""
+
+    date = form_date or parse_date_from_text(combined)
+    time = form_time or parse_time_from_text(combined)
     phone_matches = PHONE_RE.findall(combined)
     pax_match = None
     for p in PAX_PATTERNS:
@@ -234,11 +242,20 @@ def run_booking_write(state: State) -> State:
         if name_match:
             break
 
-    phone = phone_matches[-1].strip() if phone_matches else None
-    pax = int(pax_match.group(1)) if pax_match else None
-    name = name_match.group(1).strip() if name_match else None
+    phone = form_phone or (phone_matches[-1].strip() if phone_matches else None)
+    name = form_name or (name_match.group(1).strip() if name_match else None)
+
+    pax = None
+    form_pax = form.get("pax")
+    if isinstance(form_pax, int):
+        pax = form_pax
+    elif isinstance(form_pax, str) and form_pax.isdigit():
+        pax = int(form_pax)
+    elif pax_match:
+        pax = int(pax_match.group(1))
+
     # Simple heuristic: "cancel" + number -> cancel; else create path
-    if "cancel" in text.lower():
+    if "cancel" in text.lower() and not form:
         ids = re.findall(r"\b(\d{1,6})\b", text)
         if ids:
             result = asyncio.run(
@@ -272,7 +289,7 @@ def run_booking_write(state: State) -> State:
                 _call_tool(
                     "booking_write",
                     "booking_create",
-                    {"name": name, "phone": phone, "date": date, "time": time, "pax": pax, "notes": ""},
+                    {"name": name, "phone": phone, "date": date, "time": time, "pax": pax, "notes": form_notes},
                 )
             )
     state["tool_result"] = result
