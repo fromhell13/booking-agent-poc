@@ -19,6 +19,13 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks: [backend]
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [backend]
+
   mcp_server:
     build:
       context: ./mcp_server
@@ -27,12 +34,15 @@ services:
       OLLAMA_HTTP_TIMEOUT: "600"
       QDRANT_PATH: /data/qdrant_local
       DATABASE_URL: postgresql+psycopg://booking:bookingpass@postgres:5432/bookingdb
+      REDIS_URL: redis://redis:6379/0
+      MENU_CACHE_TTL_SECONDS: "3600"
     volumes:
       - qdrant_data:/data/qdrant_local
     networks: [backend]
     depends_on:
       - postgres
       - ollama
+      - redis
     ports:
       - "8000:8000"
 
@@ -44,6 +54,7 @@ services:
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       QDRANT_PATH: /data/qdrant_local
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - qdrant_data:/data/qdrant_local
       - ./sample_menu:/app/sample_menu:ro
@@ -51,6 +62,7 @@ services:
     profiles: ["ingest"]
     depends_on:
       - ollama
+      - redis
 
   agent:
     build:
@@ -88,3 +100,4 @@ volumes:
   pg_data:
   qdrant_data:
   ollama_data:
+  redis_data:

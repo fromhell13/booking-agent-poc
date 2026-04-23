@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
+from hashlib import sha256
+
+import redis
 
 from fastmcp import FastMCP
 from fastmcp.utilities.logging import get_logger
@@ -36,6 +40,8 @@ mcp = FastMCP("booking-agent-tools")
 MCP_ROOT = Path(__file__).resolve().parent
 QDRANT_DIR = os.getenv("QDRANT_PATH", str(MCP_ROOT / "qdrant_local"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+MENU_CACHE_TTL_SECONDS = int(os.getenv("MENU_CACHE_TTL_SECONDS", "3600"))
 
 # init DB tables on startup
 init_db()
@@ -48,6 +54,32 @@ menu_rag = MenuRAG(
     ollama_base_url=OLLAMA_BASE_URL,
 )
 logger.info(f"MenuRAG initialized. qdrant_path={QDRANT_DIR} ollama={OLLAMA_BASE_URL}")
+
+redis_client: redis.Redis | None = None
+try:
+    _candidate = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+    _candidate.ping()
+    redis_client = _candidate
+    logger.info(f"Redis initialized. redis_url={REDIS_URL}")
+except Exception as exc:
+    logger.warning(f"Redis unavailable, continuing without cache. reason={exc}")
+
+
+def _menu_cache_version() -> str:
+    if not redis_client:
+        return "0"
+    version = redis_client.get("menu_cache_version")
+    if not version:
+        # default generation if ingest hasn't initialized it yet
+        version = "1"
+        redis_client.set("menu_cache_version", version)
+    return version
+
+
+def _menu_cache_key(query: str, top_k: int) -> str:
+    version = _menu_cache_version()
+    digest = sha256(f"{query}|{top_k}".encode("utf-8")).hexdigest()
+    return f"menu_cache:v{version}:{digest}"
 
 # -------------------
 # Menu tools
@@ -63,10 +95,29 @@ def menu_count() -> dict:
 def query_menu(query: str, top_k: int = 3) -> dict:
     query = validate_query(query)
     top_k = validate_top_k(top_k)
+    key = _menu_cache_key(query=query, top_k=top_k)
+
+    if redis_client:
+        try:
+            cached = redis_client.get(key)
+            if cached:
+                payload = json.loads(cached)
+                payload["cache"] = "hit"
+                return payload
+        except Exception as exc:
+            logger.warning(f"Redis read failed; falling back to vector search. reason={exc}")
+
     hits = menu_rag.query(query=query, top_k=top_k)
     for h in hits:
         h["text"] = (h.get("text") or "")[:800]
-    return {"query": query, "top_k": top_k, "hits": hits}
+
+    payload = {"query": query, "top_k": top_k, "hits": hits, "cache": "miss"}
+    if redis_client:
+        try:
+            redis_client.setex(key, MENU_CACHE_TTL_SECONDS, json.dumps(payload))
+        except Exception as exc:
+            logger.warning(f"Redis write failed; skipping cache store. reason={exc}")
+    return payload
 
 # -------------------
 # Booking tools
