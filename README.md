@@ -26,6 +26,24 @@ For **monitoring and observability**, the agent can use **[AgentOps](https://www
 - `smallthinker` – chat
 - `nomic-embed-text` – embeddings
 
+## Screenshot
+
+### Reservation flow
+
+![Reserve request with form](img/reserve.jpg)
+
+![Reservation confirmed](img/reserve-2.jpg)
+
+### Database record
+
+![Reservation rows in database](img/db.jpg)
+
+### Monitoring
+
+![AgentOps trace view](img/agentops.jpg)
+
+![AgentOps metrics dashboard](img/agentops-2.jpg)
+
 ## Workflow
 
 - User can ask about **menu**, **table availability**, or **reserve/cancel** a table.
