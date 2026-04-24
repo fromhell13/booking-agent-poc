@@ -2,16 +2,24 @@
 
 Agentic AI that helps users check the restaurant menu and reserve tables.
 
+## About this project
+
+This is a **personal proof-of-concept** to try out **Docker-based LLM workflows**: chat and embeddings run **locally** (Ollama in Compose), and the stack avoids **public hosted LLM APIs** and **cloud-hosted vector databases**. Menu search uses **Qdrant on local disk** inside the compose network, **Redis** for a local **menu RAG cache**, and **Postgres** for bookings.
+
+For **monitoring and observability**, the agent can use **[AgentOps](https://www.agentops.ai/)** (open-source SDK, **free plan** for getting started) to trace sessions and debug runs alongside your local stack. See their site for signup and documentation.
+
 ## Tools & tech stack
 
 - **Streamlit** – frontend
 - **LangGraph** – orchestration of AI agents
 - **MCP** – all tools centralized; **streamable-http** transport for security
 - **Qdrant** – vector database (menu RAG)
+- **Redis** – cache for `query_menu` results (speeds repeat queries; cache keys include query, `top_k`, cuisine, and full-menu mode). After **menu re-ingest**, a version key is bumped so stale entries are ignored. Configured via `REDIS_URL` and `MENU_CACHE_TTL_SECONDS` in Compose.
 - **Postgres** – reservations database
 - **Docker** – infrastructure
 - **Ollama** – local model for chat and embeddings
 - **RAG** – restaurant menu stored and queried via embeddings
+- **AgentOps** – optional tracing / observability ([agentops.ai](https://www.agentops.ai/)); set `AGENTOPS_API_KEY` on the agent service when enabled
 
 ## Ollama models
 
@@ -21,7 +29,7 @@ Agentic AI that helps users check the restaurant menu and reserve tables.
 ## Workflow
 
 - User can ask about **menu**, **table availability**, or **reserve/cancel** a table.
-- **Menu**: agent uses RAG (Qdrant) via MCP tools.
+- **Menu**: agent calls MCP `query_menu`, which checks **Redis** first, then runs vector search against **Qdrant** on cache miss.
 - **Reservation**: agent uses Postgres via MCP tools.
 
 ### Agent split (security)
@@ -37,10 +45,43 @@ Agents are split so each can only call a subset of tools:
 - All tools live in **MCP**; MCP runs as **streamable-http**.
 - Only the appropriate agent can call read vs write booking tools; input is **validated inside MCP**.
 
-## Run with Docker
+## Run with shell scripts (recommended)
+
+From the repo root, use the helper scripts (make them executable once if needed: `chmod +x start.sh ingest.sh`).
+
+### `./start.sh` — run the app
+
+Starts the full stack in the background (**Ollama**, **Postgres**, **Redis**, **MCP server**, **agent**, **Streamlit**), rebuilds images if needed, then pulls the Ollama models (`nomic-embed-text`, `smallthinker`) so chat and embeddings work.
+
+- Does **not** ingest the menu. Use `./ingest.sh` when you add or change menu data and need to refresh Qdrant.
+- When it finishes, open **http://localhost:8501**.
 
 ```bash
-docker compose up --build
+./start.sh
+```
+
+### `./ingest.sh` — ingest (or re-ingest) the menu
+
+Use this when **`sample_menu/menu_items.json`** (preferred) or **`sample_menu/sample_menu.pdf`** is present and you want to load or update the vector index.
+
+The script **stops the stack** first (Qdrant’s local files must not be open by two processes), runs the **ingest** profile, invalidates the **Redis** menu cache version, then **starts the full stack** again and pulls **`smallthinker`**.
+
+```bash
+./ingest.sh
+```
+
+**Typical flow**
+
+1. **First clone / first menu load:** add menu files under `sample_menu/`, then run `./ingest.sh`.
+2. **Day-to-day:** run `./start.sh` if you only need the app and the menu index is already built.
+3. **After editing the menu:** run `./ingest.sh` again.
+
+## Run with Docker (manual)
+
+Equivalent to what the scripts automate:
+
+```bash
+docker compose up -d --build
 ```
 
 - Streamlit: http://localhost:8501  
@@ -48,15 +89,18 @@ docker compose up --build
   `docker compose exec ollama ollama pull smallthinker`  
   `docker compose exec ollama ollama pull nomic-embed-text`
 
-### Ingest menu (RAG)
+### Ingest menu (RAG) without `ingest.sh`
 
 1. Prefer `./sample_menu/menu_items.json` (structured items + cuisine tags for accurate filters).  
    Or put a PDF at `./sample_menu/sample_menu.pdf` as a fallback.
-2. Run ingest (profile `ingest`):  
-   `docker compose --profile ingest run ingest`
+2. Stop services that use Qdrant if you hit file-lock errors, then run:  
+   `docker compose --profile ingest run --rm ingest`
+3. Start the stack again: `docker compose up -d --build`
 
 ## Project layout
 
+- `start.sh` – bring up the full Docker stack and pull Ollama models
+- `ingest.sh` – one-off menu ingest (handles Qdrant lock + cache invalidation), then bring the stack back up
 - `streamlit/` – Streamlit UI
 - `agents/` – LangGraph agents (FastAPI), MCP client with scoped tools
 - `mcp_server/` – MCP server (streamable-http), menu RAG + booking tools, **input validation**
