@@ -1,4 +1,5 @@
 fastmcp
+fastapi
 qdrant-client
 langchain-qdrant
 langchain-community

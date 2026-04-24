@@ -31,6 +31,7 @@ For **monitoring and observability**, the agent can use **[AgentOps](https://www
 - User can ask about **menu**, **table availability**, or **reserve/cancel** a table.
 - **Menu**: agent calls MCP `query_menu`, which checks **Redis** first, then runs vector search against **Qdrant** on cache miss.
 - **Reservation**: agent uses Postgres via MCP tools.
+- **Security**: agent authenticates to MCP using local OAuth2 client-credentials (`/oauth/token`) and sends bearer tokens for MCP calls.
 
 ### Agent split (security)
 
@@ -61,8 +62,8 @@ Agents are split so each can only call a subset of tools:
 - **`OLLAMA_*`** — in-container URLs and timeouts; defaults target the **ollama** service on the Docker network.
 - **`REDIS_URL`**, **`MENU_CACHE_TTL_SECONDS`** — menu cache for MCP `query_menu`.
 - **`MCP_SERVER_PORT`**, **`STREAMLIT_PORT`**, **`POSTGRES_PORT`** — host port mappings if you need to avoid conflicts.
+- **`MCP_OAUTH_CLIENT_ID`**, **`MCP_OAUTH_CLIENT_SECRET`**, **`MCP_OAUTH_SIGNING_KEY`**, **`MCP_OAUTH_TOKEN_TTL_SECONDS`**, **`MCP_OAUTH_TOKEN_URL`** — local OAuth2 settings for agent→MCP authentication.
 
-The first block in **`.env.example`** (`QDRANT_HOST`, `REDIS_HOST`, etc.) is legacy / host-local hints and is **not** what Compose uses for the Docker stack; the **“Docker Compose service settings”** section is what the compose file interpolates.
 
 ## Run with shell scripts (recommended)
 

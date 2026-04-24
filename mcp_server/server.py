@@ -2,16 +2,21 @@ from __future__ import annotations
 
 import os
 import json
+import time
+import hmac
+import base64
 from pathlib import Path
 from hashlib import sha256
 
 import redis
 
+from fastapi import FastAPI, HTTPException, Request
 from fastmcp import FastMCP
 from fastmcp.utilities.logging import get_logger
 
-from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 
 from tools.validation import (
     validate_date,
@@ -41,9 +46,13 @@ mcp = FastMCP("booking-agent-tools")
 
 MCP_ROOT = Path(__file__).resolve().parent
 QDRANT_DIR = os.getenv("QDRANT_PATH", str(MCP_ROOT / "qdrant_local"))
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
-REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
-MENU_CACHE_TTL_SECONDS = int(os.getenv("MENU_CACHE_TTL_SECONDS", "3600"))
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
+REDIS_URL = os.getenv("REDIS_URL")
+MENU_CACHE_TTL_SECONDS = int(os.getenv("MENU_CACHE_TTL_SECONDS"))
+MCP_OAUTH_CLIENT_ID = os.getenv("MCP_OAUTH_CLIENT_ID")
+MCP_OAUTH_CLIENT_SECRET = os.getenv("MCP_OAUTH_CLIENT_SECRET")
+MCP_OAUTH_SIGNING_KEY = os.getenv("MCP_OAUTH_SIGNING_KEY")
+MCP_OAUTH_TOKEN_TTL_SECONDS = int(os.getenv("MCP_OAUTH_TOKEN_TTL_SECONDS"))
 
 # init DB tables on startup
 init_db()
@@ -83,6 +92,44 @@ def _menu_cache_key(query: str, top_k: int, cuisine: str | None, full_menu: bool
     c = cuisine or ""
     digest = sha256(f"{query}|{top_k}|{c}|{int(full_menu)}".encode("utf-8")).hexdigest()
     return f"menu_cache:v{version}:{digest}"
+
+
+def _issue_access_token(client_id: str) -> str:
+    exp = int(time.time()) + MCP_OAUTH_TOKEN_TTL_SECONDS
+    payload_obj = {"sub": client_id, "exp": exp}
+    payload_json = json.dumps(payload_obj, separators=(",", ":")).encode("utf-8")
+    payload_b64 = base64.urlsafe_b64encode(payload_json).decode("utf-8").rstrip("=")
+    sig = hmac.new(
+        MCP_OAUTH_SIGNING_KEY.encode("utf-8"),
+        payload_b64.encode("utf-8"),
+        sha256,
+    ).hexdigest()
+    return f"{payload_b64}.{sig}"
+
+
+def _verify_access_token(token: str) -> bool:
+    try:
+        payload_b64, sig = token.split(".", 1)
+    except ValueError:
+        return False
+    expected_sig = hmac.new(
+        MCP_OAUTH_SIGNING_KEY.encode("utf-8"),
+        payload_b64.encode("utf-8"),
+        sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(sig, expected_sig):
+        return False
+    pad = "=" * (-len(payload_b64) % 4)
+    try:
+        payload_json = base64.urlsafe_b64decode(f"{payload_b64}{pad}".encode("utf-8"))
+        payload = json.loads(payload_json)
+    except Exception:
+        return False
+    exp = payload.get("exp")
+    sub = payload.get("sub")
+    if not isinstance(exp, int) or not isinstance(sub, str):
+        return False
+    return exp > int(time.time())
 
 # -------------------
 # Menu tools
@@ -173,13 +220,60 @@ if __name__ == "__main__":
         path="/mcp",
     )
 '''
-middleware = [
-    Middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["Mcp-Session-Id"]
-    )
-]
-app = mcp.http_app(path="/mcp", middleware=middleware)
+class MCPAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/oauth/token":
+            return await call_next(request)
+        if request.url.path.startswith("/mcp"):
+            auth = request.headers.get("authorization", "")
+            if not auth.startswith("Bearer "):
+                return JSONResponse({"detail": "Missing bearer token"}, status_code=401)
+            token = auth[7:].strip()
+            if not _verify_access_token(token):
+                return JSONResponse({"detail": "Invalid or expired token"}, status_code=401)
+        return await call_next(request)
+
+
+mcp_http_app = mcp.http_app(path="/", middleware=[])
+
+app = FastAPI(lifespan=mcp_http_app.lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Mcp-Session-Id"],
+)
+app.add_middleware(MCPAuthMiddleware)
+
+
+@app.post("/oauth/token")
+async def oauth_token(request: Request):
+    ctype = (request.headers.get("content-type") or "").lower()
+    grant_type = client_id = client_secret = None
+    if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
+        form = await request.form()
+        grant_type = form.get("grant_type")
+        client_id = form.get("client_id")
+        client_secret = form.get("client_secret")
+    else:
+        body = await request.json()
+        if isinstance(body, dict):
+            grant_type = body.get("grant_type")
+            client_id = body.get("client_id")
+            client_secret = body.get("client_secret")
+
+    if grant_type != "client_credentials":
+        raise HTTPException(status_code=400, detail="Unsupported grant_type")
+    if client_id != MCP_OAUTH_CLIENT_ID or client_secret != MCP_OAUTH_CLIENT_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid client credentials")
+
+    token = _issue_access_token(client_id)
+    return {
+        "access_token": token,
+        "token_type": "Bearer",
+        "expires_in": MCP_OAUTH_TOKEN_TTL_SECONDS,
+    }
+
+
+app.mount("/mcp", mcp_http_app)
