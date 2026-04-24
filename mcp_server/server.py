@@ -24,6 +24,8 @@ from tools.validation import (
     validate_top_k,
     validate_max_tables,
     validate_notes,
+    validate_optional_cuisine,
+    validate_full_menu_flag,
 )
 from tools.menu.menu_rag import MenuRAG
 from tools.booking.booking_repo import (
@@ -76,9 +78,10 @@ def _menu_cache_version() -> str:
     return version
 
 
-def _menu_cache_key(query: str, top_k: int) -> str:
+def _menu_cache_key(query: str, top_k: int, cuisine: str | None, full_menu: bool) -> str:
     version = _menu_cache_version()
-    digest = sha256(f"{query}|{top_k}".encode("utf-8")).hexdigest()
+    c = cuisine or ""
+    digest = sha256(f"{query}|{top_k}|{c}|{int(full_menu)}".encode("utf-8")).hexdigest()
     return f"menu_cache:v{version}:{digest}"
 
 # -------------------
@@ -92,10 +95,12 @@ def menu_count() -> dict:
     }
 
 @mcp.tool()
-def query_menu(query: str, top_k: int = 3) -> dict:
+def query_menu(query: str, top_k: int = 8, cuisine: str | None = None, full_menu: bool = False) -> dict:
     query = validate_query(query)
     top_k = validate_top_k(top_k)
-    key = _menu_cache_key(query=query, top_k=top_k)
+    cuisine = validate_optional_cuisine(cuisine)
+    full_menu = validate_full_menu_flag(full_menu)
+    key = _menu_cache_key(query=query, top_k=top_k, cuisine=cuisine, full_menu=full_menu)
 
     if redis_client:
         try:
@@ -107,11 +112,21 @@ def query_menu(query: str, top_k: int = 3) -> dict:
         except Exception as exc:
             logger.warning(f"Redis read failed; falling back to vector search. reason={exc}")
 
-    hits = menu_rag.query(query=query, top_k=top_k)
+    if full_menu:
+        hits = menu_rag.list_menu(cuisine=cuisine, limit=64)
+    else:
+        hits = menu_rag.query(query=query, top_k=top_k, cuisine=cuisine)
     for h in hits:
         h["text"] = (h.get("text") or "")[:800]
 
-    payload = {"query": query, "top_k": top_k, "hits": hits, "cache": "miss"}
+    payload = {
+        "query": query,
+        "top_k": top_k,
+        "cuisine": cuisine,
+        "full_menu": full_menu,
+        "hits": hits,
+        "cache": "miss",
+    }
     if redis_client:
         try:
             redis_client.setex(key, MENU_CACHE_TTL_SECONDS, json.dumps(payload))

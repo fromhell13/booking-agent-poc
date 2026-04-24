@@ -1,0 +1,16 @@
+{
+  "items": [
+    {"name": "Grilled Ribeye Steak", "price": "48.00", "currency": "MYR", "cuisine": "western", "category": "main"},
+    {"name": "Spaghetti Carbonara", "price": "32.00", "currency": "MYR", "cuisine": "western", "category": "main"},
+    {"name": "Classic Caesar Salad", "price": "22.00", "currency": "MYR", "cuisine": "western", "category": "starter"},
+    {"name": "Nasi Lemak Ayam Berempah", "price": "18.00", "currency": "MYR", "cuisine": "asian", "category": "main"},
+    {"name": "Tom Yum Seafood Soup", "price": "25.00", "currency": "MYR", "cuisine": "asian", "category": "starter"},
+    {"name": "Japanese Chicken Teriyaki Don", "price": "24.00", "currency": "MYR", "cuisine": "asian", "category": "main"},
+    {"name": "Laksa Pasta", "price": "28.00", "currency": "MYR", "cuisine": "asian", "category": "main"},
+    {"name": "Kimchi Quesadilla", "price": "26.00", "currency": "MYR", "cuisine": "fusion", "category": "main"},
+    {"name": "Rendang Beef Burger", "price": "30.00", "currency": "MYR", "cuisine": "fusion", "category": "main"},
+    {"name": "Iced Lemon Tea", "price": "8.00", "currency": "MYR", "cuisine": "beverage", "category": "drink"},
+    {"name": "Cappuccino", "price": "10.00", "currency": "MYR", "cuisine": "beverage", "category": "drink"},
+    {"name": "Matcha Latte", "price": "12.00", "currency": "MYR", "cuisine": "beverage", "category": "drink"}
+  ]
+}

@@ -79,6 +79,30 @@ def validate_query(query: str) -> str:
     return query
 
 
+_MENU_CUISINES = frozenset({"western", "asian", "beverage", "fusion"})
+
+
+def validate_optional_cuisine(cuisine: str | None) -> str | None:
+    if cuisine is None:
+        return None
+    if not isinstance(cuisine, str):
+        _err("cuisine must be a string or omitted")
+    c = cuisine.strip().lower()
+    if not c:
+        return None
+    if c not in _MENU_CUISINES:
+        _err(f"cuisine must be one of {', '.join(sorted(_MENU_CUISINES))} or omitted")
+    return c
+
+
+def validate_full_menu_flag(full_menu: bool | None) -> bool:
+    if full_menu is None:
+        return False
+    if not isinstance(full_menu, bool):
+        _err("full_menu must be a boolean")
+    return full_menu
+
+
 def validate_top_k(top_k: int, max_k: int = 20) -> int:
     if not isinstance(top_k, int):
         _err("top_k must be an integer")

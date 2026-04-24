@@ -50,7 +50,8 @@ docker compose up --build
 
 ### Ingest menu (RAG)
 
-1. Put a PDF menu at `./sample_menu/sample_menu.pdf`.
+1. Prefer `./sample_menu/menu_items.json` (structured items + cuisine tags for accurate filters).  
+   Or put a PDF at `./sample_menu/sample_menu.pdf` as a fallback.
 2. Run ingest (profile `ingest`):  
    `docker compose --profile ingest run ingest`
 
@@ -59,5 +60,5 @@ docker compose up --build
 - `streamlit/` – Streamlit UI
 - `agents/` – LangGraph agents (FastAPI), MCP client with scoped tools
 - `mcp_server/` – MCP server (streamable-http), menu RAG + booking tools, **input validation**
-- `ingest/` – one-off job to ingest menu PDF into Qdrant
+- `ingest/` – one-off job to ingest menu (JSON preferred, PDF fallback) into Qdrant
 - `db/` – Postgres init (tables created by MCP server)

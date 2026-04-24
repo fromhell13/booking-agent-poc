@@ -8,10 +8,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+JSON_PATH="$ROOT_DIR/sample_menu/menu_items.json"
 PDF_PATH="$ROOT_DIR/sample_menu/sample_menu.pdf"
-if [[ ! -f "$PDF_PATH" ]]; then
-  echo "Error: menu PDF not found at: $PDF_PATH" >&2
-  echo "Place your menu PDF at: sample_menu/sample_menu.pdf and try again." >&2
+if [[ ! -f "$JSON_PATH" && ! -f "$PDF_PATH" ]]; then
+  echo "Error: no menu source found." >&2
+  echo "  Add sample_menu/menu_items.json (preferred) or sample_menu/sample_menu.pdf" >&2
   exit 1
 fi
 

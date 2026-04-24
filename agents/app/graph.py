@@ -70,6 +70,74 @@ NAME_PATTERNS = [
 ]
 
 
+def infer_menu_cuisine(text: str) -> Optional[str]:
+    """Map user phrasing to menu JSON/Qdrant cuisine payload."""
+    if not text:
+        return None
+    t = text.lower()
+    if any(
+        w in t
+        for w in [
+            "beverage",
+            "beverages",
+            "drink",
+            "drinks",
+            "coffee",
+            "tea",
+            "latte",
+            "cappuccino",
+            "juice",
+        ]
+    ):
+        return "beverage"
+    if any(w in t for w in ["western", "steak", "carbonara", "italian", "european", "caesar", "pasta"]):
+        return "western"
+    if any(
+        w in t
+        for w in [
+            "asian",
+            "japanese",
+            "thai",
+            "malay",
+            "malaysian",
+            "nasi",
+            "teriyaki",
+            "tom yum",
+            "laksa",
+        ]
+    ):
+        return "asian"
+    if any(w in t for w in ["fusion", "kimchi", "rendang burger"]):
+        return "fusion"
+    return None
+
+
+def is_full_menu_request(text: str, cuisine: Optional[str]) -> bool:
+    """Broad menu listing without a cuisine filter (uses stored menu / scroll)."""
+    if cuisine:
+        return False
+    if not text:
+        return False
+    t = text.lower()
+    return any(
+        p in t
+        for p in [
+            "menu",
+            "full menu",
+            "the menu",
+            "your menu",
+            "what do you serve",
+            "what do you have",
+            "what's on the menu",
+            "what is on the menu",
+            "list of dish",
+            "list the dish",
+            "all dish",
+            "everything on the menu",
+        ]
+    )
+
+
 def parse_date_from_text(text: str) -> Optional[str]:
     """Return YYYY-MM-DD or None. Handles ISO plus common English dates."""
     if not text:
@@ -186,8 +254,21 @@ async def _call_tool(scope: Scope, tool_name: str, payload: dict) -> dict:
 
 @tool(name="query_menu")
 def run_menu(state: State) -> State:
+    text = state.get("text") or ""
+    cuisine = infer_menu_cuisine(text)
+    full_menu = is_full_menu_request(text, cuisine)
+    top_k = 12 if cuisine else 10
     result = asyncio.run(
-        _call_tool("menu", "query_menu", {"query": state["text"], "top_k": 3})
+        _call_tool(
+            "menu",
+            "query_menu",
+            {
+                "query": text,
+                "top_k": top_k,
+                "cuisine": cuisine,
+                "full_menu": full_menu,
+            },
+        )
     )
     state["tool_result"] = result
     return state
@@ -311,7 +392,7 @@ def respond(state: State) -> State:
                 parts.append("time")
             need = " and ".join(parts) if parts else "date and time"
             state["answer"] = (
-                f"Final Solution: Please provide the {need} "
+                f"Please provide the {need} "
                 "(e.g. 10 April 2026 at 6:00 PM or 2026-04-10 and 18:00)."
             )
             return state
@@ -320,7 +401,7 @@ def respond(state: State) -> State:
             rem = tr.get("remaining_tables", 0)
             d, tm = tr.get("date"), tr.get("time")
             state["answer"] = (
-                f"Final Solution: {'Yes' if avail else 'No'} — {rem} table(s) still available on {d} at {tm}."
+                f"{'Yes' if avail else 'No'} — {rem} table(s) still available on {d} at {tm}."
             )
             return state
     if state.get("intent") == "booking_write" and isinstance(tr, dict):
@@ -328,27 +409,27 @@ def respond(state: State) -> State:
             missing = tr.get("missing_fields") or []
             if isinstance(missing, list) and missing:
                 state["answer"] = (
-                    "Final Solution: Please provide these missing details to complete your reservation: "
+                    "Please provide these missing details to complete your reservation: "
                     + ", ".join(str(x) for x in missing)
                     + "."
                 )
             else:
-                state["answer"] = "Final Solution: Please provide your name, phone, date, time, and pax."
+                state["answer"] = "Please provide your name, phone, date, time, and pax."
             return state
 
         if tr.get("ok") is True and tr.get("id"):
-            state["answer"] = f"Final Solution: Done. Reservation {tr.get('id')} has been cancelled."
+            state["answer"] = f"Done. Reservation {tr.get('id')} has been cancelled."
             return state
 
         if tr.get("id") and tr.get("name") and tr.get("date") and tr.get("time"):
             state["answer"] = (
-                f"Final Solution: Reservation confirmed for {tr.get('name')} on {tr.get('date')} at "
+                f"Reservation confirmed for {tr.get('name')} on {tr.get('date')} at "
                 f"{tr.get('time')} for {tr.get('pax')} pax. Booking ID: {tr.get('id')}."
             )
             return state
 
         if tr.get("error"):
-            state["answer"] = f"Final Solution: {tr.get('error')}"
+            state["answer"] = f"{tr.get('error')}"
             return state
 
     msgs = [SystemMessage(content="""
@@ -363,11 +444,11 @@ def respond(state: State) -> State:
         - Never invent menu items, prices, or availability.
 
         Menu response rules (generic for any cuisine):
-        - If user asks for a cuisine/category (e.g., asian, western, beverage), return ONLY items from that cuisine/category.
-        - Exclude items from other cuisines/categories unless user asks for them.
+        - If tool_result includes full_menu=true, list every dish in tool_result.hits (cap at 15). Group by cuisine: Western, Asian, Fusion, Beverages.
+        - If user asks for a cuisine/category (tool_result.cuisine set), return ONLY items from tool_result.hits (do not add items from other cuisines).
         - If no matching items are found in tool_result, say that clearly and ask one short clarification.
         - Include price only when available in tool_result.
-        - For general menu requests, return up to 6 items total.
+        - For other menu questions, return up to 10 items from tool_result.hits only.
 
         Booking response rules:
         - Be direct and action-oriented.
@@ -378,13 +459,13 @@ def respond(state: State) -> State:
         - Do not confirm booking unless booking_create has succeeded.
 
         Output format:
-        - Keep total response under 120 words.
+        - Keep total response under 180 words for full menu; otherwise under 120 words.
         - For menu responses, use this format exactly:
           Menu:
           - <item 1>
           - <item 2>
           - <item 3>
-          (up to 6 items)
+          (up to 15 items when full_menu is true)
         - For booking/other responses, use one short paragraph.
         """)]
     for m in state.get("messages", [])[-10:]:

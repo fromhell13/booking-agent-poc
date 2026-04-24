@@ -1,0 +1,19 @@
+{
+  "description": "Keyword hints for tagging PDF chunks during ingest (PDF fallback only). First matching cuisine in scan_order wins. Use menu_items.json for authoritative cuisine labels.",
+  "scan_order": ["beverage", "fusion", "asian", "western"],
+  "keywords": {
+    "beverage": [
+      "tea", "coffee", "latte", "cappuccino", "juice", "drink", "beverage", "soda", "espresso", "mocha"
+    ],
+    "fusion": [
+      "kimchi", "quesadilla", "rendang", "burger", "fusion"
+    ],
+    "asian": [
+      "nasi", "lemak", "tom yum", "teriyaki", "laksa", "ramen", "curry", "asian", "sushi", "dim sum"
+    ],
+    "western": [
+      "steak", "carbonara", "caesar", "western", "spaghetti", "grilled ribeye", "ribeye", "salad"
+    ]
+  },
+  "default_cuisine": "fusion"
+}
