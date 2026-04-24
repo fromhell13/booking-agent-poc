@@ -462,10 +462,9 @@ def respond(state: State) -> State:
         - Keep total response under 180 words for full menu; otherwise under 120 words.
         - For menu responses, use this format exactly:
           Menu:
-          - <item 1>
-          - <item 2>
-          - <item 3>
-          (up to 15 items when full_menu is true)
+          - <item 1> <price 1>
+          - <item 2> <price 2>
+          - <item 3> <price 3>
         - For booking/other responses, use one short paragraph.
         """)]
     for m in state.get("messages", [])[-10:]:
