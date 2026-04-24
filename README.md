@@ -45,6 +45,25 @@ Agents are split so each can only call a subset of tools:
 - All tools live in **MCP**; MCP runs as **streamable-http**.
 - Only the appropriate agent can call read vs write booking tools; input is **validated inside MCP**.
 
+## Environment file (`.env`)
+
+**Before** you run `./start.sh`, `./ingest.sh`, or `docker compose`, set up environment variables at the **repository root**.
+
+1. Copy the example file and edit values as needed:
+   ```bash
+   cp .env.example .env
+   ```
+
+**What to customize**
+
+- **`AGENTOPS_API_KEY`** — optional; leave empty or remove if you are not using [AgentOps](https://www.agentops.ai/). If set, the **agent** service receives it for tracing.
+- **`POSTGRES_*`**, **`DATABASE_URL`** — database user, password, DB name, and JDBC-style URL used by **mcp_server** (defaults match the bundled Postgres service).
+- **`OLLAMA_*`** — in-container URLs and timeouts; defaults target the **ollama** service on the Docker network.
+- **`REDIS_URL`**, **`MENU_CACHE_TTL_SECONDS`** — menu cache for MCP `query_menu`.
+- **`MCP_SERVER_PORT`**, **`STREAMLIT_PORT`**, **`POSTGRES_PORT`** — host port mappings if you need to avoid conflicts.
+
+The first block in **`.env.example`** (`QDRANT_HOST`, `REDIS_HOST`, etc.) is legacy / host-local hints and is **not** what Compose uses for the Docker stack; the **“Docker Compose service settings”** section is what the compose file interpolates.
+
 ## Run with shell scripts (recommended)
 
 From the repo root, use the helper scripts (make them executable once if needed: `chmod +x start.sh ingest.sh`).
@@ -72,9 +91,10 @@ The script **stops the stack** first (Qdrant’s local files must not be open by
 
 **Typical flow**
 
-1. **First clone / first menu load:** add menu files under `sample_menu/`, then run `./ingest.sh`.
-2. **Day-to-day:** run `./start.sh` if you only need the app and the menu index is already built.
-3. **After editing the menu:** run `./ingest.sh` again.
+1. **First clone:** copy **`.env`** from **`.env.example`** and adjust if needed (see [Environment file](#environment-file-env) above).
+2. **First menu load:** add files under `sample_menu/`, then run `./ingest.sh`.
+3. **Day-to-day:** run `./start.sh` if you only need the app and the menu index is already built.
+4. **After editing the menu:** run `./ingest.sh` again.
 
 ## Run with Docker (manual)
 
