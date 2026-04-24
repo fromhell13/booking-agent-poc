@@ -131,6 +131,8 @@ def parse_time_from_text(text: str) -> Optional[str]:
 
 def _normalize_tool_result(raw: Any) -> dict:
     """Unwrap MCP streamable-http payloads that nest JSON in content[].text."""
+    if isinstance(raw, list):
+        raw = {"content": raw}
     if isinstance(raw, dict) and "content" in raw and isinstance(raw["content"], list):
         for block in raw["content"]:
             if not isinstance(block, dict):
@@ -179,9 +181,7 @@ async def _call_tool(scope: Scope, tool_name: str, payload: dict) -> dict:
     if tool_name not in tools:
         return {"error": "tool_not_found", "allowed": list(tools.keys())}
     raw = await tools[tool_name].ainvoke(payload)
-    if isinstance(raw, dict):
-        return _normalize_tool_result(raw)
-    return {"content": raw}
+    return _normalize_tool_result(raw)
 
 
 @tool(name="query_menu")
@@ -322,6 +322,33 @@ def respond(state: State) -> State:
             state["answer"] = (
                 f"Final Solution: {'Yes' if avail else 'No'} — {rem} table(s) still available on {d} at {tm}."
             )
+            return state
+    if state.get("intent") == "booking_write" and isinstance(tr, dict):
+        if tr.get("needs_booking_fields"):
+            missing = tr.get("missing_fields") or []
+            if isinstance(missing, list) and missing:
+                state["answer"] = (
+                    "Final Solution: Please provide these missing details to complete your reservation: "
+                    + ", ".join(str(x) for x in missing)
+                    + "."
+                )
+            else:
+                state["answer"] = "Final Solution: Please provide your name, phone, date, time, and pax."
+            return state
+
+        if tr.get("ok") is True and tr.get("id"):
+            state["answer"] = f"Final Solution: Done. Reservation {tr.get('id')} has been cancelled."
+            return state
+
+        if tr.get("id") and tr.get("name") and tr.get("date") and tr.get("time"):
+            state["answer"] = (
+                f"Final Solution: Reservation confirmed for {tr.get('name')} on {tr.get('date')} at "
+                f"{tr.get('time')} for {tr.get('pax')} pax. Booking ID: {tr.get('id')}."
+            )
+            return state
+
+        if tr.get("error"):
+            state["answer"] = f"Final Solution: {tr.get('error')}"
             return state
 
     msgs = [SystemMessage(content="""

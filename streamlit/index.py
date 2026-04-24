@@ -25,6 +25,10 @@ def _looks_like_booking_request(text: str) -> bool:
     t = (text or "").lower()
     return any(k in t for k in ["reserve", "reservation", "book", "booking", "table"])
 
+def _looks_like_cancel_request(text: str) -> bool:
+    t = (text or "").lower()
+    return any(k in t for k in ["cancel", "cancellation"])
+
 
 def _send_to_agent(user_text: str, booking_form: dict | None = None) -> dict | None:
     st.session_state.messages.append({"role": "user", "content": user_text})
@@ -61,10 +65,17 @@ if prompt:
     data = _send_to_agent(prompt)
     tool_result = (data or {}).get("tool_result") if isinstance(data, dict) else None
     should_show_form = False
-    if _looks_like_booking_request(prompt):
-        should_show_form = True
-    if isinstance(tool_result, dict) and tool_result.get("needs_booking_fields"):
-        should_show_form = True
+    should_hide_form = _looks_like_cancel_request(prompt)
+
+    if should_hide_form:
+        if st.session_state.show_reservation_form:
+            st.session_state.show_reservation_form = False
+            st.rerun()
+    else:
+        if _looks_like_booking_request(prompt):
+            should_show_form = True
+        if isinstance(tool_result, dict) and tool_result.get("needs_booking_fields"):
+            should_show_form = True
     if should_show_form and not st.session_state.show_reservation_form:
         st.session_state.show_reservation_form = True
         st.rerun()
