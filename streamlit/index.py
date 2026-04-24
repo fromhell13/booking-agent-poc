@@ -13,7 +13,7 @@ except ValueError:
     REQUEST_TIMEOUT = (15.0, 600.0)
 
 st.set_page_config(page_title="Booking Agent", page_icon="🍽️")
-st.title("🍽️ Booking Agent")
+st.title("Booking Agent")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Hi! Ask about the menu, or say you want to reserve a table."}]
@@ -32,22 +32,23 @@ def _send_to_agent(user_text: str, booking_form: dict | None = None) -> dict | N
         st.markdown(user_text)
 
     with st.chat_message("assistant"):
-        payload = {"messages": st.session_state.messages[-10:], "text": user_text, "booking_form": booking_form}
-        try:
-            # Ollama cold-start / first request can exceed 60s on CPU.
-            r = requests.post(f"{AGENT_URL}/chat", json=payload, timeout=REQUEST_TIMEOUT)
-            r.raise_for_status()
-            data = r.json()
-            answer = data.get("answer", "")
-            st.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
+        with st.spinner("Agent is processing your request..."):
+            payload = {"messages": st.session_state.messages[-10:], "text": user_text, "booking_form": booking_form}
+            try:
+                # Ollama cold-start / first request can exceed 60s on CPU.
+                r = requests.post(f"{AGENT_URL}/chat", json=payload, timeout=REQUEST_TIMEOUT)
+                r.raise_for_status()
+                data = r.json()
+                answer = data.get("answer", "")
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
 
-            with st.expander("Debug (tool_result)"):
-                st.json(data.get("tool_result"))
-            return data
-        except Exception as e:
-            st.error(f"Agent error: {e}")
-            return None
+                with st.expander("Debug (tool_result)"):
+                    st.json(data.get("tool_result"))
+                return data
+            except Exception as e:
+                st.error(f"Agent error: {e}")
+                return None
 
 
 for m in st.session_state.messages:
