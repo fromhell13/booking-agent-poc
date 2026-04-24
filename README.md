@@ -34,6 +34,8 @@ For **monitoring and observability**, the agent can use **[AgentOps](https://www
 
 ![Reservation confirmed](img/reserve-2.jpg)
 
+![Reservation cancelled](img/cancel.jpg)
+
 ### Database record
 
 ![Reservation rows in database](img/db.jpg)
