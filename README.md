@@ -26,6 +26,9 @@ For **monitoring and observability**, the agent can use **[AgentOps](https://www
 - `smallthinker` – chat
 - `nomic-embed-text` – embeddings
 
+## Diagram
+![Diagram](diagram/restaurant-booking-agent.drawio.png)
+
 ## Screenshot
 
 ### Reservation flow
