@@ -4,7 +4,7 @@ Agentic AI that helps users check the restaurant menu and reserve tables.
 
 ## About this project
 
-This is a personal proof-of-concept to try out Docker-based LLM workflows: chat and embeddings run locally (Ollama in Compose), and the stack avoids public hosted LLM APIs and cloud-hosted vector databases. Menu search uses Qdrant on local disk inside the compose network, Redis for a local menu RAG cache, and Postgres for bookings storage.
+This is a personal proof-of-concept to try out Docker LLM workflows: chat and embeddings run locally (Ollama in Compose), and the stack avoids public hosted LLM APIs and cloud-hosted vector databases. Menu search uses Qdrant on local disk inside the compose network, Redis for a local menu RAG cache, and Postgres for bookings storage.
 
 For monitoring and observability, the agent can use [AgentOps](https://www.agentops.ai/) to trace sessions and debug runs alongside your local stack. 
 
