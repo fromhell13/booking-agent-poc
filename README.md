@@ -4,9 +4,9 @@ Agentic AI that helps users check the restaurant menu and reserve tables.
 
 ## About this project
 
-This is a **personal proof-of-concept** to try out **Docker-based LLM workflows**: chat and embeddings run **locally** (Ollama in Compose), and the stack avoids **public hosted LLM APIs** and **cloud-hosted vector databases**. Menu search uses **Qdrant on local disk** inside the compose network, **Redis** for a local **menu RAG cache**, and **Postgres** for bookings storage.
+This is a personal proof-of-concept to try out Docker-based LLM workflows: chat and embeddings run locally (Ollama in Compose), and the stack avoids public hosted LLM APIs and cloud-hosted vector databases. Menu search uses Qdrant on local disk inside the compose network, Redis for a local menu RAG cache, and Postgres for bookings storage.
 
-For **monitoring and observability**, the agent can use **[AgentOps](https://www.agentops.ai/)** (open-source SDK, **free plan** for getting started) to trace sessions and debug runs alongside your local stack. 
+For monitoring and observability, the agent can use [AgentOps](https://www.agentops.ai/) to trace sessions and debug runs alongside your local stack. 
 
 ## Tools & tech stack
 
@@ -52,7 +52,7 @@ For **monitoring and observability**, the agent can use **[AgentOps](https://www
 ## Workflow
 
 - User can ask about **menu**, **table availability**, or **reserve/cancel** a table.
-- **Menu**: agent calls MCP `query_menu`, which checks **Redis** first, then runs vector search against **Qdrant** on cache miss.
+- **Menu**: agent calls MCP `query_menu`, which checks Redis first, then runs vector search against Qdrant on cache miss.
 - **Reservation**: agent uses Postgres via MCP tools.
 - **Security**: agent authenticates to MCP using local OAuth2 client-credentials (`/oauth/token`) and sends bearer tokens for MCP calls.
 
@@ -66,12 +66,12 @@ Agents are split so each can only call a subset of tools:
 | Booking-read   | Read DB  | `booking_check_availability`, `booking_list`   |
 | Booking-write  | Write DB | `booking_create`, `booking_cancel`              |
 
-- All tools live in **MCP**; MCP runs as **streamable-http**.
-- Only the appropriate agent can call read vs write booking tools; input is **validated inside MCP**.
+- All tools live in MCP; MCP runs as **streamable-http**.
+- Only the appropriate agent can call read vs write booking tools; input is validated inside MCP.
 
 ## Environment file (`.env`)
 
-**Before** you run `./start.sh`, `./ingest.sh`, or `docker compose`, set up environment variables at the **repository root**.
+Before you run `./start.sh`, `./ingest.sh`, or `docker compose`, set up environment variables at the repository root.
 
 1. Copy the example file and edit values as needed:
    ```bash
@@ -80,8 +80,8 @@ Agents are split so each can only call a subset of tools:
 
 **What to customize**
 
-- **`AGENTOPS_API_KEY`** — optional; leave empty or remove if you are not using [AgentOps](https://www.agentops.ai/). If set, the **agent** service receives it for tracing.
-- **`POSTGRES_*`**, **`DATABASE_URL`** — database user, password, DB name, and database URL used by **mcp_server**.
+- **`AGENTOPS_API_KEY`** — optional; leave empty or remove if you are not using [AgentOps](https://www.agentops.ai/). If set, the agent service receives it for tracing.
+- **`POSTGRES_*`**, **`DATABASE_URL`** — database user, password, DB name, and database URL used by mcp_server.
 - **`REDIS_URL`**, **`MENU_CACHE_TTL_SECONDS`** — menu cache for MCP `query_menu`.
 - **`MCP_SERVER_PORT`**, **`STREAMLIT_PORT`**, **`POSTGRES_PORT`** — host port mappings if you need to avoid conflicts.
 - **`MCP_OAUTH_CLIENT_ID`**, **`MCP_OAUTH_CLIENT_SECRET`**, **`MCP_OAUTH_SIGNING_KEY`**, **`MCP_OAUTH_TOKEN_TTL_SECONDS`**, **`MCP_OAUTH_TOKEN_URL`** — local OAuth2 settings for agent→MCP authentication.
@@ -100,7 +100,7 @@ Agents are split so each can only call a subset of tools:
 
 ### `./ingest.sh` — ingest (or re-ingest) the menu
 
-Use this when **`sample_menu/menu_items.json`** (preferred) or **`sample_menu/sample_menu.pdf`** is present and you want to load or update the vector index.
+Use this when **`sample_menu/sample_menu.pdf`** is present and you want to load or update the vector index.
 
 ```bash
 ./ingest.sh
@@ -132,6 +132,6 @@ docker compose up -d --build
 - `ingest.sh` – one-off menu ingest (handles Qdrant lock + cache invalidation).
 - `streamlit/` – Streamlit UI
 - `agents/` – LangGraph agents (FastAPI), MCP client with scoped tools
-- `mcp_server/` – MCP server (streamable-http), menu RAG + booking tools, **input validation**
+- `mcp_server/` – MCP server (streamable-http), menu RAG + booking tools, input validation
 - `ingest/` – one-off job to ingest menu (JSON preferred, PDF fallback) into Qdrant
 - `db/` – Postgres init (tables created by MCP server)
