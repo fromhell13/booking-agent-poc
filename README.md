@@ -71,7 +71,7 @@ Agents are split so each can only call a subset of tools:
 
 ## Environment file (`.env`)
 
-Before you run `./start.sh`, `./ingest.sh`, or `docker compose`, set up environment variables at the repository root.
+Before you run `./scripts/start.sh`, `./scripts/ingest.sh`, or `docker compose`, set up environment variables at the repository root.
 
 1. Copy the example file and edit values as needed:
    ```bash
@@ -89,21 +89,21 @@ Before you run `./start.sh`, `./ingest.sh`, or `docker compose`, set up environm
 
 ## Run with shell scripts (recommended)
 
-### `./start.sh` — run the app
+### `./scripts/start.sh` — run the app
 
-- Does **not** ingest the menu. Use `./ingest.sh` when you add or change menu data and need to refresh Qdrant.
+- Does **not** ingest the menu. Use `./scripts/ingest.sh` when you add or change menu data and need to refresh Qdrant.
 - When it finishes, open **http://localhost:8501**.
 
 ```bash
-./start.sh
+./scripts/start.sh
 ```
 
-### `./ingest.sh` — ingest (or re-ingest) the menu
+### `./scripts/ingest.sh` — ingest (or re-ingest) the menu
 
 Use this when **`sample_menu/sample_menu.pdf`** is present and you want to load or update the vector index.
 
 ```bash
-./ingest.sh
+./scripts/ingest.sh
 ```
 
 ## Run with Docker (manual)
@@ -119,7 +119,7 @@ docker compose up -d --build
   `docker compose exec ollama ollama pull smallthinker`  
   `docker compose exec ollama ollama pull nomic-embed-text`
 
-### Ingest menu (RAG) without `ingest.sh`
+### Ingest menu (RAG) without `scripts/ingest.sh`
 
 1. Put a PDF at `./sample_menu/sample_menu.pdf`.
 2. Stop services that use Qdrant if you hit file-lock errors, then run:  
@@ -128,8 +128,8 @@ docker compose up -d --build
 
 ## Project layout
 
-- `start.sh` – bring up the full Docker stack and pull Ollama models
-- `ingest.sh` – one-off menu ingest (handles Qdrant lock + cache invalidation).
+- `scripts/start.sh` – bring up the full Docker stack and pull Ollama models
+- `scripts/ingest.sh` – one-off menu ingest (handles Qdrant lock + cache invalidation).
 - `streamlit/` – Streamlit UI
 - `agents/` – LangGraph agents (FastAPI), MCP client with scoped tools
 - `mcp_server/` – MCP server (streamable-http), menu RAG + booking tools, input validation
