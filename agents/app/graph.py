@@ -14,6 +14,7 @@ import logging
 import agentops
 from agentops.sdk.decorators import tool
 
+from collections import defaultdict
 from datetime import datetime
 from typing import TypedDict, List, Optional, Literal, Dict, Any
 
@@ -220,6 +221,106 @@ def _normalize_tool_result(raw: Any) -> dict:
     if isinstance(raw, dict):
         return raw
     return {"content": raw}
+
+
+_FULL_MENU_GROUP_ORDER = ("western", "asian", "fusion", "beverage")
+
+
+def _format_menu_hit_line(hit: dict) -> str:
+    meta = hit.get("metadata")
+    if not isinstance(meta, dict):
+        meta = {}
+    name = (meta.get("name") or "").strip()
+    text = (hit.get("text") or "").strip()
+    lines = text.split("\n", 1) if text else []
+    first_line = lines[0].strip() if lines else ""
+    rest = lines[1].strip() if len(lines) > 1 else ""
+
+    if not name:
+        name = first_line
+    price_part = rest
+    if not price_part and name != first_line and first_line:
+        # name from metadata; price may still be on first line of text in odd payloads
+        price_part = first_line if first_line != name else ""
+
+    if price_part:
+        return f"- {name} {price_part}"
+    return f"- {name}"
+
+
+def _cuisine_heading(cuisine_key: str) -> str:
+    c = (cuisine_key or "other").lower()
+    labels = {
+        "western": "Western",
+        "asian": "Asian",
+        "fusion": "Fusion",
+        "beverage": "Beverages",
+    }
+    return labels.get(c, c.replace("_", " ").title())
+
+
+def _format_cached_menu_answer(tr: dict) -> str:
+    """Deterministic menu text; skips LLM when MCP menu cache hits."""
+    hits = tr.get("hits")
+    if not isinstance(hits, list) or not hits:
+        return "No matching menu items were found. What cuisine or dish are you looking for?"
+
+    full_menu = bool(tr.get("full_menu"))
+    cuisine_filter = tr.get("cuisine")
+    if isinstance(cuisine_filter, str) and cuisine_filter.strip():
+        cuisine_filter = cuisine_filter.strip().lower()
+    else:
+        cuisine_filter = None
+
+    if full_menu:
+        groups: dict[str, list] = defaultdict(list)
+        for h in hits:
+            if not isinstance(h, dict):
+                continue
+            meta = h.get("metadata")
+            ck = "other"
+            if isinstance(meta, dict):
+                raw_c = (meta.get("cuisine") or "").strip().lower()
+                if raw_c:
+                    ck = raw_c
+            groups[ck].append(h)
+
+        out: list[str] = ["Menu:"]
+        shown = 0
+        for key in _FULL_MENU_GROUP_ORDER:
+            if key not in groups or shown >= 15:
+                continue
+            out.append(f"{_cuisine_heading(key)}:")
+            for h in groups[key]:
+                if shown >= 15:
+                    break
+                out.append(_format_menu_hit_line(h))
+                shown += 1
+        for key in sorted(k for k in groups if k not in _FULL_MENU_GROUP_ORDER):
+            if shown >= 15:
+                break
+            out.append(f"{_cuisine_heading(key)}:")
+            for h in groups[key]:
+                if shown >= 15:
+                    break
+                out.append(_format_menu_hit_line(h))
+                shown += 1
+        return "\n".join(out)
+
+    if cuisine_filter:
+        lines = ["Menu:"]
+        for h in hits:
+            if not isinstance(h, dict):
+                continue
+            lines.append(_format_menu_hit_line(h))
+        return "\n".join(lines)
+
+    lines = ["Menu:"]
+    for h in hits[:10]:
+        if not isinstance(h, dict):
+            continue
+        lines.append(_format_menu_hit_line(h))
+    return "\n".join(lines)
 
 
 class State(TypedDict):
@@ -431,6 +532,10 @@ def respond(state: State) -> State:
         if tr.get("error"):
             state["answer"] = f"{tr.get('error')}"
             return state
+
+    if state.get("intent") == "menu" and isinstance(tr, dict) and tr.get("cache") == "hit":
+        state["answer"] = _format_cached_menu_answer(tr)
+        return state
 
     msgs = [SystemMessage(content="""
         You are a booking and menu assistant. Use tool_result as the single source of truth.
