@@ -50,11 +50,13 @@ mcp = FastMCP("booking-agent-tools")
 MCP_ROOT = Path(__file__).resolve().parent
 QDRANT_DIR = os.getenv("QDRANT_PATH", str(MCP_ROOT / "qdrant_local"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
+MENU_QDRANT_COLLECTION = os.getenv("MENU_QDRANT_COLLECTION", "menu").strip() or "menu"
+MENU_EMBEDDING_MODEL = os.getenv("MENU_EMBEDDING_MODEL", "nomic-embed-text").strip() or "nomic-embed-text"
 REDIS_URL = os.getenv("REDIS_URL")
 MENU_CACHE_TTL_SECONDS = int(os.getenv("MENU_CACHE_TTL_SECONDS"))
 MENU_SEMANTIC_CACHE_ENABLED = os.getenv("MENU_SEMANTIC_CACHE_ENABLED", "1").strip() not in ("0", "false", "False")
-MENU_SEMANTIC_CACHE_THRESHOLD = float(os.getenv("MENU_SEMANTIC_CACHE_THRESHOLD", "0.90"))
-MENU_SEMANTIC_CACHE_COLLECTION = os.getenv("MENU_SEMANTIC_CACHE_COLLECTION", "menu_query_cache")
+MENU_SEMANTIC_CACHE_THRESHOLD = float(os.getenv("MENU_SEMANTIC_CACHE_THRESHOLD"))
+MENU_SEMANTIC_CACHE_COLLECTION = os.getenv("MENU_SEMANTIC_CACHE_COLLECTION", "menu_query_cache").strip() or "menu_query_cache"
 MENU_CACHE_DEBUG = os.getenv("MENU_CACHE_DEBUG", "0").strip() in ("1", "true", "True")
 MCP_OAUTH_CLIENT_ID = os.getenv("MCP_OAUTH_CLIENT_ID")
 MCP_OAUTH_CLIENT_SECRET = os.getenv("MCP_OAUTH_CLIENT_SECRET")
@@ -66,12 +68,18 @@ init_db()
 logger.info("Booking DB initialized")
 
 menu_rag = MenuRAG(
-    collection_name="menu",
+    collection_name=MENU_QDRANT_COLLECTION,
     qdrant_path=QDRANT_DIR,
-    embedding_model="nomic-embed-text",
+    embedding_model=MENU_EMBEDDING_MODEL,
     ollama_base_url=OLLAMA_BASE_URL,
 )
-logger.info(f"MenuRAG initialized. qdrant_path={QDRANT_DIR} ollama={OLLAMA_BASE_URL}")
+logger.info(
+    "MenuRAG initialized. collection=%s qdrant_path=%s embedding_model=%s ollama=%s",
+    MENU_QDRANT_COLLECTION,
+    QDRANT_DIR,
+    MENU_EMBEDDING_MODEL,
+    OLLAMA_BASE_URL,
+)
 
 semantic_cache_client: QdrantClient | None = None
 try:
