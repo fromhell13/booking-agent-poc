@@ -31,10 +31,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
-OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "smallthinker")
-_ollama_http_timeout = float(os.getenv("OLLAMA_HTTP_TIMEOUT", "600"))
-_ollama_num_predict = int(os.getenv("OLLAMA_NUM_PREDICT", "384"))
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
+OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL")
+_ollama_http_timeout = float(os.getenv("OLLAMA_HTTP_TIMEOUT"))
+_ollama_num_predict = int(os.getenv("OLLAMA_NUM_PREDICT"))
 llm = ChatOllama(
     model=OLLAMA_CHAT_MODEL,
     base_url=OLLAMA_BASE_URL,
