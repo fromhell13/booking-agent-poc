@@ -119,13 +119,6 @@ docker compose up -d --build
   `docker compose exec ollama ollama pull smallthinker`  
   `docker compose exec ollama ollama pull nomic-embed-text`
 
-### Ingest menu (RAG) without `scripts/ingest.sh`
-
-1. Put a PDF at `./sample_menu/sample_menu.pdf`.
-2. Stop services that use Qdrant if you hit file-lock errors, then run:  
-   `docker compose --profile ingest run --rm ingest`
-3. Start the stack again: `docker compose up -d --build`
-
 ## Project layout
 
 - `scripts/start.sh` – bring up the full Docker stack and pull Ollama models
